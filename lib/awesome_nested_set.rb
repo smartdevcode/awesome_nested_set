@@ -91,6 +91,10 @@ module CollectiveIdea
           
           named_scope :roots, :conditions => {parent_column_name => nil}, :order => quoted_left_column_name
           named_scope :leaves, :conditions => "#{quoted_right_column_name} - #{quoted_left_column_name} = 1", :order => quoted_left_column_name
+          if self.respond_to?(:define_callbacks)
+            define_callbacks("before_move", "after_move")              
+          end
+
           
         end
         
@@ -412,10 +416,9 @@ module CollectiveIdea
         # declaration.
         def nested_set_scope
           options = {:order => quoted_left_column_name}
-          scopes = Array(acts_as_nested_set_options[:scope])
-          options[:conditions] = scopes.inject({}) do |conditions,attr|
+          options[:conditions] = Array(acts_as_nested_set_options[:scope]).inject({}) do |conditions,attr|
             conditions.merge attr => self[attr]
-          end unless scopes.empty?
+          end
           self.class.base_class.scoped options
         end
         
@@ -460,6 +463,9 @@ module CollectiveIdea
         
         def move_to(target, position)
           raise ActiveRecord::ActiveRecordError, "You cannot move a new node" if self.new_record?
+          return if callback(:before_move) == false
+          # extent is the width of the tree self and children
+          extent = right - left + 1
 
           transaction do
             if target.is_a? self.class.base_class
@@ -473,56 +479,84 @@ module CollectiveIdea
             unless position == :root || move_possible?(target)
               raise ActiveRecord::ActiveRecordError, "Impossible move, target node cannot be inside moved tree."
             end
-            
-            bound = case position
-              when :child;  target[right_column_name]
-              when :left;   target[left_column_name]
-              when :right;  target[right_column_name] + 1
-              when :root;   1
-              else raise ActiveRecord::ActiveRecordError, "Position should be :child, :left, :right or :root ('#{position}' received)."
-            end
           
-            if bound > self[right_column_name]
-              bound = bound - 1
-              other_bound = self[right_column_name] + 1
+            # compute new left/right for self
+            case position
+            when :child
+              if target.left < left
+                new_left  = target.left + 1
+                new_right = target.left + extent
+              else
+                new_left  = target.left - extent + 1
+                new_right = target.left
+              end
+            when :left
+              if target.left < left
+                new_left  = target.left
+                new_right = target.left + extent - 1
+              else
+                new_left  = target.left - extent
+                new_right = target.left - 1
+              end
+            when :right
+              if target.right < right
+                new_left  = target.right + 1
+                new_right = target.right + extent
+              else
+                new_left  = target.right - extent + 1
+                new_right = target.right
+              end
+            when :root
+              new_left  = 1
+              new_right = extent
             else
-              other_bound = self[left_column_name] - 1
+              raise ActiveRecord::ActiveRecordError, "Position should be either left, right or child ('#{position}' received)."
             end
 
-            # there would be no change
-            return if bound == self[right_column_name] || bound == self[left_column_name]
-          
-            # we have defined the boundaries of two non-overlapping intervals, 
-            # so sorting puts both the intervals and their boundaries in order
-            a, b, c, d = [self[left_column_name], self[right_column_name], bound, other_bound].sort
+            # boundaries of update action
+            b_left, b_right = [left, new_left].min, [right, new_right].max
 
-            new_parent = case position
-              when :child;  target.id
-              when :root;   nil
-              else          target[parent_column_name]
+            # Shift value to move self to new position
+            shift = new_left - left
+
+            # Shift value to move nodes inside boundaries but not under self_and_children
+            updown = (shift > 0) ? -extent : extent
+
+            # change nil to NULL for new parent
+            case position
+            when :child
+              new_parent = target.id
+            when :root
+              new_parent = nil
+            else
+              new_parent = target[parent_column_name]
             end
 
             self.class.base_class.update_all([
               "#{quoted_left_column_name} = CASE " +
-                "WHEN #{quoted_left_column_name} BETWEEN :a AND :b " +
-                  "THEN #{quoted_left_column_name} + :d - :b " +
-                "WHEN #{quoted_left_column_name} BETWEEN :c AND :d " +
-                  "THEN #{quoted_left_column_name} + :a - :c " +
+                "WHEN #{quoted_left_column_name} BETWEEN :left AND :right " +
+                  "THEN #{quoted_left_column_name} + :shift " +
+                "WHEN #{quoted_left_column_name} BETWEEN :b_left AND :b_right " +
+                  "THEN #{quoted_left_column_name} + :updown " +
                 "ELSE #{quoted_left_column_name} END, " +
               "#{quoted_right_column_name} = CASE " +
-                "WHEN #{quoted_right_column_name} BETWEEN :a AND :b " +
-                  "THEN #{quoted_right_column_name} + :d - :b " +
-                "WHEN #{quoted_right_column_name} BETWEEN :c AND :d " +
-                  "THEN #{quoted_right_column_name} + :a - :c " +
+                "WHEN #{quoted_right_column_name} BETWEEN :left AND :right " +
+                  "THEN #{quoted_right_column_name} + :shift " +
+                "WHEN #{quoted_right_column_name} BETWEEN :b_left AND :b_right " +
+                  "THEN #{quoted_right_column_name} + :updown " +
                 "ELSE #{quoted_right_column_name} END, " +
               "#{quoted_parent_column_name} = CASE " +
-                "WHEN #{self.class.base_class.primary_key} = :id THEN :new_parent " +
+                "WHEN #{self.class.base_class.primary_key} = :id " +
+                  "THEN :new_parent " +
                 "ELSE #{quoted_parent_column_name} END",
-              {:a => a, :b => b, :c => c, :d => d, :id => self.id, :new_parent => new_parent}
+              {:left => left, :right => right, :b_left => b_left, :b_right => b_right,
+                :shift => shift, :updown => updown, :id => self.id,
+                :new_parent => new_parent}
             ], nested_set_scope.proxy_options[:conditions])
           end
           target.reload_nested_set if target
           self.reload_nested_set
+          callback(:after_move)
         end
 
       end
