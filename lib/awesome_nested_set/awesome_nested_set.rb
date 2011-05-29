@@ -51,8 +51,8 @@ module CollectiveIdea #:nodoc:
           options[:scope] = "#{options[:scope]}_id".intern
         end
 
-        write_inheritable_attribute :acts_as_nested_set_options, options
-        class_inheritable_reader :acts_as_nested_set_options
+        class_attribute :acts_as_nested_set_options
+        self.acts_as_nested_set_options = options
 
         include CollectiveIdea::Acts::NestedSet::Model
         include Columns
@@ -88,7 +88,7 @@ module CollectiveIdea #:nodoc:
         scope :roots, where(parent_column_name => nil).order(quoted_left_column_name)
         scope :leaves, where("#{quoted_right_column_name} - #{quoted_left_column_name} = 1").order(quoted_left_column_name)
 
-        define_model_callbacks :move
+        define_callbacks :move, :terminator => "result == false"
       end
 
       module Model
