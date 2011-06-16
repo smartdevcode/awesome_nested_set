@@ -51,8 +51,8 @@ module CollectiveIdea #:nodoc:
           options[:scope] = "#{options[:scope]}_id".intern
         end
 
-        class_attribute :acts_as_nested_set_options
-        self.acts_as_nested_set_options = options
+        write_inheritable_attribute :acts_as_nested_set_options, options
+        class_inheritable_reader :acts_as_nested_set_options
 
         include CollectiveIdea::Acts::NestedSet::Model
         include Columns
@@ -496,7 +496,7 @@ module CollectiveIdea #:nodoc:
                   else          target[parent_column_name]
                 end
 
-                self.class.base_class.update_all([
+                self.nested_set_scope.update_all([
                   "#{quoted_left_column_name} = CASE " +
                     "WHEN #{quoted_left_column_name} BETWEEN :a AND :b " +
                       "THEN #{quoted_left_column_name} + :d - :b " +
