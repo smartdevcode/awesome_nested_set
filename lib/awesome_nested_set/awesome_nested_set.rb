@@ -51,8 +51,8 @@ module CollectiveIdea #:nodoc:
           options[:scope] = "#{options[:scope]}_id".intern
         end
 
-        class_attribute :acts_as_nested_set_options
-        self.acts_as_nested_set_options = options
+        write_inheritable_attribute :acts_as_nested_set_options, options
+        class_inheritable_reader :acts_as_nested_set_options
 
         include CollectiveIdea::Acts::NestedSet::Model
         include Columns
@@ -60,11 +60,9 @@ module CollectiveIdea #:nodoc:
 
         belongs_to :parent, :class_name => self.base_class.to_s,
           :foreign_key => parent_column_name,
-          :counter_cache => options[:counter_cache],
-          :inverse_of => :children
+          :counter_cache => options[:counter_cache]
         has_many :children, :class_name => self.base_class.to_s,
-          :foreign_key => parent_column_name, :order => quoted_left_column_name,
-          :inverse_of => :parent
+          :foreign_key => parent_column_name, :order => quoted_left_column_name
 
         attr_accessor :skip_before_destroy
 
@@ -90,7 +88,7 @@ module CollectiveIdea #:nodoc:
         scope :roots, where(parent_column_name => nil).order(quoted_left_column_name)
         scope :leaves, where("#{quoted_right_column_name} - #{quoted_left_column_name} = 1").order(quoted_left_column_name)
 
-        define_model_callbacks :move
+        define_callbacks :move, :terminator => "result == false"
       end
 
       module Model
@@ -384,8 +382,7 @@ module CollectiveIdea #:nodoc:
           # All nested set queries should use this nested_set_scope, which performs finds on
           # the base ActiveRecord class, using the :scope declared in the acts_as_nested_set
           # declaration.
-          def nested_set_scope
-            options = {:order => quoted_left_column_name}
+          def nested_set_scope(options = {:order => quoted_left_column_name})
             scopes = Array(acts_as_nested_set_options[:scope])
             options[:conditions] = scopes.inject({}) do |conditions,attr|
               conditions.merge attr => self[attr]
@@ -408,7 +405,8 @@ module CollectiveIdea #:nodoc:
 
           # on creation, set automatically lft and rgt to the end of the tree
           def set_default_left_and_right
-            maxright = nested_set_scope.maximum(right_column_name) || 0
+            highest_right_row = nested_set_scope(:order => "#{quoted_right_column_name} desc").find(:first, :limit => 1,:lock => true )
+            maxright = highest_right_row ? highest_right_row[right_column_name] : 0
             # adds the new node to the right of all existing nodes
             self[left_column_name] = maxright + 1
             self[right_column_name] = maxright + 2
@@ -491,6 +489,13 @@ module CollectiveIdea #:nodoc:
                 # we have defined the boundaries of two non-overlapping intervals,
                 # so sorting puts both the intervals and their boundaries in order
                 a, b, c, d = [self[left_column_name], self[right_column_name], bound, other_bound].sort
+
+                # select the rows in the model between a and d, and apply a lock
+                self.class.base_class.find(:all,
+                  :select => "id",
+                  :conditions => ["#{quoted_left_column_name} >= :a and #{quoted_right_column_name} <= :d", {:a => a, :d => d}],
+                  :lock => true
+                )
 
                 new_parent = case position
                   when :child;  target.id
