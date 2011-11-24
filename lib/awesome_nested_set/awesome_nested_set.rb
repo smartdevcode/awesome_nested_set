@@ -110,11 +110,8 @@ module CollectiveIdea #:nodoc:
             left_and_rights_valid? && no_duplicates_for_columns? && all_roots_valid?
           end
 
-          def left_and_rights_valid?  
-            ## AS clause not supported in Oracle in FROM clause for aliasing table name
-            joins("LEFT OUTER JOIN #{quoted_table_name}" + 
-                (connection.adapter_name.match(/Oracle/).nil? ?  " AS " : " ") + 
-                "parent ON " +
+          def left_and_rights_valid?
+            joins("LEFT OUTER JOIN #{quoted_table_name} AS parent ON " +
                 "#{quoted_table_name}.#{quoted_parent_column_name} = parent.#{primary_key}").
             where(
                 "#{quoted_table_name}.#{quoted_left_column_name} IS NULL OR " +
@@ -416,7 +413,7 @@ module CollectiveIdea #:nodoc:
           # on creation, set automatically lft and rgt to the end of the tree
           def set_default_left_and_right
             highest_right_row = nested_set_scope(:order => "#{quoted_right_column_name} desc").find(:first, :limit => 1,:lock => true )
-            maxright = highest_right_row ? highest_right_row[right_column_name] : 0
+            maxright = highest_right_row ? (highest_right_row[right_column_name] || 0) : 0
             # adds the new node to the right of all existing nodes
             self[left_column_name] = maxright + 1
             self[right_column_name] = maxright + 2
