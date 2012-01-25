@@ -46,6 +46,7 @@ module CollectiveIdea #:nodoc:
           :right_column => 'rgt',
           :depth_column => 'depth',
           :dependent => :delete_all, # or :destroy
+          :polymorphic => false,
           :counter_cache => false
         }.merge(options)
 
@@ -63,10 +64,11 @@ module CollectiveIdea #:nodoc:
         belongs_to :parent, :class_name => self.base_class.to_s,
           :foreign_key => parent_column_name,
           :counter_cache => options[:counter_cache],
-          :inverse_of => :children
+          :inverse_of => (:children unless options[:polymorphic]),
+          :polymorphic => options[:polymorphic]
         has_many :children, :class_name => self.base_class.to_s,
           :foreign_key => parent_column_name, :order => left_column_name,
-          :inverse_of => :parent,
+          :inverse_of => (:parent unless options[:polymorphic]),
           :before_add    => options[:before_add],
           :after_add     => options[:after_add],
           :before_remove => options[:before_remove],
@@ -243,8 +245,9 @@ module CollectiveIdea #:nodoc:
           parent_id.nil?
         end
 
+        # Returns true if this is the end of a branch.
         def leaf?
-          !new_record? && right - left == 1
+          persisted? && right.to_i - left.to_i == 1
         end
 
         # Returns true is this is a child node
