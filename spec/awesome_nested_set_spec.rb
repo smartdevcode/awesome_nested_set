@@ -115,6 +115,16 @@ describe "AwesomeNestedSet" do
     categories(:child_3).root.should == categories(:top_level)
   end
 
+  it "root when not persisted and parent_column_name value is self" do
+    new_category = Category.new
+    new_category.root.should == new_category
+  end
+
+  it "root when not persisted and parent_column_name value is set" do
+    last_category = Category.last
+    Category.new(Default.parent_column_name => last_category.id).root.should == last_category.root
+  end
+
   it "root?" do
     categories(:top_level).root?.should be_true
     categories(:top_level_2).root?.should be_true
@@ -184,19 +194,32 @@ describe "AwesomeNestedSet" do
     categories(:child_2_1).level.should == 2
   end
 
-  it "depth" do
-    lawyers = Category.create!(:name => "lawyers")
-    us = Category.create!(:name => "United States")
-    us.move_to_child_of(lawyers)
-    patent = Category.create!(:name => "Patent Law")
-    patent.move_to_child_of(us)
-    lawyers.reload
-    us.reload
-    patent.reload
+  describe "depth" do
+    let(:lawyers) { Category.create!(:name => "lawyers") }
+    let(:us) { Category.create!(:name => "United States") }
+    let(:patent) { Category.create!(:name => "Patent Law") }
 
-    lawyers.depth.should == 0
-    us.depth.should == 1
-    patent.depth.should == 2
+    before(:each) do
+      # lawyers > us > patent
+      us.move_to_child_of(lawyers)
+      patent.move_to_child_of(us)
+      [lawyers, us, patent].each(&:reload)
+    end
+
+    it "updates depth when moved into child position" do
+      lawyers.depth.should == 0
+      us.depth.should == 1
+      patent.depth.should == 2
+    end
+
+    it "updates depth of child when parent is moved" do
+      # lawyers
+      # us > patent
+      us.move_to_right_of(lawyers)
+      [lawyers, us, patent].each(&:reload)
+      us.depth.should == 0
+      patent.depth.should == 1
+    end
   end
 
   it "depth is magic and does not apply when column is missing" do
@@ -391,6 +414,43 @@ describe "AwesomeNestedSet" do
     categories(:child_1).move_to_child_of(categories(:child_3))
     categories(:child_3).id.should == categories(:child_1).parent_id
     Category.valid?.should be_true
+  end
+
+  describe "#move_to_child_with_index" do
+    it "move to a node without child" do
+      categories(:child_1).move_to_child_with_index(categories(:child_3), 0)
+      categories(:child_3).id.should == categories(:child_1).parent_id
+      categories(:child_1).left.should == 7
+      categories(:child_1).right.should == 8
+      categories(:child_3).left.should == 6
+      categories(:child_3).right.should == 9
+      Category.valid?.should be_true
+    end
+
+    it "move to a node to the left child" do
+      categories(:child_1).move_to_child_with_index(categories(:child_2), 0)
+      categories(:child_1).parent_id.should == categories(:child_2).id
+      categories(:child_2_1).left.should == 5
+      categories(:child_2_1).right.should == 6
+      categories(:child_1).left.should == 3
+      categories(:child_1).right.should == 4
+      categories(:child_2).reload
+      categories(:child_2).left.should == 2
+      categories(:child_2).right.should == 7
+    end
+
+    it "move to a node to the right child" do
+      categories(:child_1).move_to_child_with_index(categories(:child_2), 1)
+      categories(:child_1).parent_id.should == categories(:child_2).id
+      categories(:child_2_1).left.should == 3
+      categories(:child_2_1).right.should == 4
+      categories(:child_1).left.should == 5
+      categories(:child_1).right.should == 6
+      categories(:child_2).reload
+      categories(:child_2).left.should == 2
+      categories(:child_2).right.should == 7
+    end
+
   end
 
   it "move_to_child_of_appends_to_end" do

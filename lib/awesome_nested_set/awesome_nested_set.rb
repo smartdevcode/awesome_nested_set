@@ -292,12 +292,20 @@ module CollectiveIdea #:nodoc:
 
         # Returns true is this is a child node
         def child?
-          !parent_id.nil?
+          !root?
         end
 
         # Returns root
         def root
-          self_and_ancestors.where(parent_column_name => nil).first
+          if persisted?
+            self_and_ancestors.where(parent_column_name => nil).first
+          else
+            if parent_id && current_parent = nested_set_scope.find(parent_id)
+              current_parent.root
+            else
+              self
+            end
+          end
         end
 
         # Returns the array of all parents and self
@@ -403,6 +411,17 @@ module CollectiveIdea #:nodoc:
         # Move the node to the child of another node (you can pass id only)
         def move_to_child_of(node)
           move_to node, :child
+        end
+
+        # Move the node to the child of another node with specify index (you can pass id only)
+        def move_to_child_with_index(node, index)
+          if node.children.empty?
+            move_to_child_of(node)
+          elsif node.children.count == index
+            move_to_right_of(node.children.last)
+          else
+            move_to_left_of(node.children[index])
+          end
         end
 
         # Move the node to root nodes
@@ -610,6 +629,7 @@ module CollectiveIdea #:nodoc:
             end
             target.reload_nested_set if target
             self.set_depth!
+            self.children.each(&:save)
             self.reload_nested_set
           end
         end
