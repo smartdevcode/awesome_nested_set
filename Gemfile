@@ -7,7 +7,6 @@ gemspec :path => File.expand_path('../', __FILE__)
 platforms :jruby do
   gem 'activerecord-jdbcsqlite3-adapter'
   gem 'activerecord-jdbcmysql-adapter'
-  gem 'jdbc-mysql'
   gem 'activerecord-jdbcpostgresql-adapter'
   gem 'jruby-openssl'
 end
@@ -18,10 +17,9 @@ platforms :ruby do
   gem 'pg'
 end
 
-RAILS_VERSION = nil unless defined? RAILS_VERSION
-gem 'railties', RAILS_VERSION
-gem 'activerecord', RAILS_VERSION
-gem 'actionpack', RAILS_VERSION
+gem 'activerecord', :github => 'rails/rails'
+gem 'activerecord-deprecated_finders', :github => 'rails/activerecord-deprecated_finders'
+gem 'journey', :github => 'rails/journey'
 
 # Add Oracle Adapters
 # gem 'ruby-oci8'

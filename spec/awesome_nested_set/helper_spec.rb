@@ -18,7 +18,7 @@ describe "Helper" do
         ['- Child 3', 5],
         [" Top Level 2", 6]
       ]
-      actual = nested_set_options(Category.scoped) do |c|
+      actual = nested_set_options(Category.all) do |c|
         "#{'-' * c.level} #{c.name}"
       end
       actual.should == expected
@@ -31,7 +31,7 @@ describe "Helper" do
         ['- Child 3', 5],
         [" Top Level 2", 6]
       ]
-      actual = nested_set_options(Category.scoped, categories(:child_2)) do |c|
+      actual = nested_set_options(Category.all, categories(:child_2)) do |c|
         "#{'-' * c.level} #{c.name}"
       end
       actual.should == expected
@@ -77,10 +77,7 @@ describe "Helper" do
       actual = nested_set_options(Category.all) do |c|
         "#{'-' * c.level} #{c.name}"
       end
-      actual.length.should == expected.length
-      expected.flatten.each do |node|
-        actual.flatten.should include(node)
-      end
+      actual.should == expected
     end
 
     it "test_nested_set_options_with_array_as_argument_with_mover" do
@@ -93,10 +90,7 @@ describe "Helper" do
       actual = nested_set_options(Category.all, categories(:child_2)) do |c|
         "#{'-' * c.level} #{c.name}"
       end
-      actual.length.should == expected.length
-      expected.flatten.each do |node|
-        actual.flatten.should include(node)
-      end
+      actual.should == expected
     end
   end
 end
