@@ -104,7 +104,12 @@ describe "AwesomeNestedSet" do
   end
 
   it "roots_class_method" do
-    Category.roots.to_a.should == Category.where(:parent_id => nil).to_a
+    found_by_us = Category.where(:parent_id => nil).to_a
+    found_by_roots = Category.roots.to_a
+    found_by_us.length.should == found_by_roots.length
+    found_by_us.each do |root|
+      found_by_roots.should include(root)
+    end
   end
 
   it "root_class_method" do
@@ -131,7 +136,6 @@ describe "AwesomeNestedSet" do
   end
 
   it "leaves_class_method" do
-    Category.where("#{Category.right_column_name} - #{Category.left_column_name} = 1").to_a.should == Category.leaves.to_a
     Category.leaves.count.should == 4
     Category.leaves.should include(categories(:child_1))
     Category.leaves.should include(categories(:child_2_1))
@@ -433,8 +437,8 @@ describe "AwesomeNestedSet" do
     categories(:child_2).parent.should be_nil
     categories(:child_2).level.should == 0
     categories(:child_2_1).level.should == 1
-    categories(:child_2).left.should == 1
-    categories(:child_2).right.should == 4
+    categories(:child_2).left.should == 7
+    categories(:child_2).right.should == 10
     Category.valid?.should be_true
   end
 
@@ -775,14 +779,14 @@ describe "AwesomeNestedSet" do
 
   it "quoting_of_multi_scope_column_names" do
     ## Proper Array Assignment for different DBs as per their quoting column behavior
-    if Note.connection.adapter_name.match(/Oracle/)
+    if Note.connection.adapter_name.match(/oracle/i)
       expected_quoted_scope_column_names = ["\"NOTABLE_ID\"", "\"NOTABLE_TYPE\""]
-    elsif Note.connection.adapter_name.match(/Mysql/)
+    elsif Note.connection.adapter_name.match(/mysql/i)
       expected_quoted_scope_column_names = ["`notable_id`", "`notable_type`"]
     else
       expected_quoted_scope_column_names = ["\"notable_id\"", "\"notable_type\""]
     end
-    expected_quoted_scope_column_names.should == Note.quoted_scope_column_names
+    Note.quoted_scope_column_names.should == expected_quoted_scope_column_names
   end
 
   it "equal_in_same_scope" do
@@ -926,6 +930,16 @@ describe "AwesomeNestedSet" do
     ]
 
     check_structure(Category.root.self_and_descendants, levels)
+  end
+
+  it "should not error on a model with attr_accessible" do
+    model = Class.new(ActiveRecord::Base)
+    model.table_name = 'categories'
+    model.attr_accessible :name
+    lambda {
+      model.acts_as_nested_set
+      model.new(:name => 'foo')
+    }.should_not raise_exception
   end
 
   describe "before_move_callback" do
