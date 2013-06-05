@@ -72,7 +72,7 @@ module CollectiveIdea #:nodoc:
         has_many_children_options = {
           :class_name => self.base_class.to_s,
           :foreign_key => parent_column_name,
-          :order => order_column,
+          :order => quoted_order_column_name,
           :inverse_of => (:parent unless options[:polymorphic]),
         }
 
@@ -540,8 +540,7 @@ module CollectiveIdea #:nodoc:
 
         # on creation, set automatically lft and rgt to the end of the tree
         def set_default_left_and_right
-          highest_right_row = nested_set_scope(:order => "#{quoted_right_column_full_name} desc").first
-          highest_right_row && highest_right_row.lock!
+          highest_right_row = nested_set_scope(:order => "#{quoted_right_column_full_name} desc").limit(1).lock(true).first
           maxright = highest_right_row ? (highest_right_row[right_column_name] || 0) : 0
           # adds the new node to the right of all existing nodes
           self[left_column_name] = maxright + 1
@@ -727,6 +726,10 @@ module CollectiveIdea #:nodoc:
 
         def quoted_scope_column_names
           scope_column_names.collect {|column_name| connection.quote_column_name(column_name) }
+        end
+
+        def quoted_order_column_name
+          connection.quote_column_name(order_column)
         end
 
         def quoted_left_column_full_name
