@@ -18,11 +18,6 @@ platforms :ruby do
   gem 'pg'
 end
 
-RAILS_VERSION = nil unless defined? RAILS_VERSION
-gem 'railties', RAILS_VERSION
-gem 'activerecord', RAILS_VERSION
-gem 'actionpack', RAILS_VERSION
-
 # Add Oracle Adapters
 # gem 'ruby-oci8'
 # gem 'activerecord-oracle_enhanced-adapter'
