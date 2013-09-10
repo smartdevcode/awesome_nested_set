@@ -13,7 +13,7 @@ postgresql:
   password: postgres
   min_messages: warning
 mysql:
-  adapter: <%= defined?(JRUBY_VERSION) ? "jdbcmysql" : "mysql2" %>
+  adapter: mysql2
   host: localhost
   username: root
   password:

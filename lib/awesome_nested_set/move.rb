@@ -80,9 +80,10 @@ module CollectiveIdea #:nodoc:
 
         def new_parent
           case position
-          when :child then target.id
-          when :root  then nil
-          else target[parent_column_name]
+          when :child
+            target.id
+          else
+            target[parent_column_name]
           end
         end
 
@@ -104,10 +105,9 @@ module CollectiveIdea #:nodoc:
 
         def target_bound
           case position
-          when :child then right(target)
-          when :left  then left(target)
-          when :right then right(target) + 1
-          when :root  then nested_set_scope.pluck(right_column_name).max + 1
+          when :child;  right(target)
+          when :left;   left(target)
+          when :right;  right(target) + 1
           else raise ActiveRecord::ActiveRecordError, "Position should be :child, :left, :right or :root ('#{position}' received)."
           end
         end
