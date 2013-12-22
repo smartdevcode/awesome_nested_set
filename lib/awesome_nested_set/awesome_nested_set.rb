@@ -75,16 +75,18 @@ module CollectiveIdea #:nodoc:
         has_many_children_options = {
           :class_name => self.base_class.to_s,
           :foreign_key => parent_column_name,
-          :order => quoted_order_column_name,
           :inverse_of => (:parent unless acts_as_nested_set_options[:polymorphic]),
         }
 
         # Add callbacks, if they were supplied.. otherwise, we don't want them.
         [:before_add, :after_add, :before_remove, :after_remove].each do |ar_callback|
-          has_many_children_options.update(ar_callback => acts_as_nested_set_options[ar_callback]) if acts_as_nested_set_options[ar_callback]
+          has_many_children_options.update(
+            ar_callback => acts_as_nested_set_options[ar_callback]
+          ) if acts_as_nested_set_options[ar_callback]
         end
 
-        has_many :children, has_many_children_options
+        has_many :children, -> { order(quoted_order_column_name) },
+                 has_many_children_options
       end
 
       def acts_as_nested_set_relate_parent!
@@ -92,7 +94,8 @@ module CollectiveIdea #:nodoc:
                             :foreign_key => parent_column_name,
                             :counter_cache => acts_as_nested_set_options[:counter_cache],
                             :inverse_of => (:children unless acts_as_nested_set_options[:polymorphic]),
-                            :polymorphic => acts_as_nested_set_options[:polymorphic]
+                            :polymorphic => acts_as_nested_set_options[:polymorphic],
+                            :touch => acts_as_nested_set_options[:touch]
       end
 
       def acts_as_nested_set_default_options
@@ -103,7 +106,8 @@ module CollectiveIdea #:nodoc:
           :depth_column => 'depth',
           :dependent => :delete_all, # or :destroy
           :polymorphic => false,
-          :counter_cache => false
+          :counter_cache => false,
+          :touch => false
         }.freeze
       end
 
