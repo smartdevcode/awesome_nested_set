@@ -14,7 +14,7 @@ module CollectiveIdea #:nodoc:
               # select the rows in the model that extend past the deletion point and apply a lock
               nested_set_scope.right_of(left).select(id).lock(true)
 
-              destroy_or_delete_descendants
+              return false unless destroy_or_delete_descendants
 
               # update lefts and rights for remaining nodes
               update_siblings_for_remaining_nodes
@@ -29,6 +29,14 @@ module CollectiveIdea #:nodoc:
               descendants.each do |model|
                 model.skip_before_destroy = true
                 model.destroy
+              end
+            elsif acts_as_nested_set_options[:dependent] == :restrict_with_exception
+              raise ActiveRecord::DeleteRestrictionError.new(:children) unless leaf?
+            elsif acts_as_nested_set_options[:dependent] == :restrict_with_error
+              unless leaf?
+                record = self.class.human_attribute_name(:children).downcase
+                errors.add(:base, :"restrict_dependent_destroy.many", record: record)
+                false
               end
             else
               descendants.delete_all

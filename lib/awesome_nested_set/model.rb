@@ -34,9 +34,16 @@ module CollectiveIdea #:nodoc:
 
               if !association.loaded? && parent
                 association.target = parent
-                association.set_inverse_instance(parent)
+                add_to_inverse_association(association, parent)
               end
             end
+          end
+
+          def add_to_inverse_association(association, record)
+            inverse_reflection = association.send(:inverse_reflection_for, record)
+            inverse = record.association(inverse_reflection.name)
+            inverse.target << association.owner
+            inverse.loaded!
           end
 
           def children_of(parent_id)
@@ -74,7 +81,7 @@ module CollectiveIdea #:nodoc:
           def nested_set_scope(options = {})
             options = {:order => quoted_order_column_name}.merge(options)
 
-            order(options.delete(:order)).scoped options
+            where(options[:conditions]).order(options.delete(:order))
           end
 
           def primary_key_scope(id)
@@ -134,7 +141,7 @@ module CollectiveIdea #:nodoc:
             end
           end
 
-          self.class.nested_set_scope options
+          self.class.base_class.nested_set_scope options
         end
 
         def to_text
@@ -199,10 +206,10 @@ module CollectiveIdea #:nodoc:
           )
         end
 
-        def reload_target(target)
+        def reload_target(target, position)
           if target.is_a? self.class.base_class
             target.reload
-          else
+          elsif position != :root
             nested_set_scope.find(target)
           end
         end
