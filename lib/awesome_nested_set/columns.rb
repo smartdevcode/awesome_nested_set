@@ -51,10 +51,6 @@ module CollectiveIdea #:nodoc:
           connection.quote_column_name(order_column)
         end
 
-        def quoted_order_column_full_name
-          "#{quoted_table_name}.#{quoted_order_column_name}"
-        end
-
         def quoted_left_column_full_name
           "#{quoted_table_name}.#{quoted_left_column_name}"
         end
