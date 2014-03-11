@@ -33,6 +33,7 @@ module CollectiveIdea #:nodoc:
         delegate :left, :right, :left_column_name, :right_column_name,
                  :quoted_left_column_name, :quoted_right_column_name,
                  :quoted_parent_column_name, :parent_column_name, :nested_set_scope,
+                 :primary_column_name, :quoted_primary_column_name, :primary_id,
                  :to => :instance
 
         delegate :arel_table, :class, :to => :instance, :prefix => true
@@ -48,7 +49,7 @@ module CollectiveIdea #:nodoc:
            case_condition_for_direction(:quoted_left_column_name) +
            case_condition_for_direction(:quoted_right_column_name) +
            case_condition_for_parent,
-           {:a => a, :b => b, :c => c, :d => d, :id => instance.id, :new_parent => new_parent}
+           {:a => a, :b => b, :c => c, :d => d, :primary_id => instance.primary_id, :new_parent => new_parent}
           ]
         end
 
@@ -64,14 +65,14 @@ module CollectiveIdea #:nodoc:
 
         def case_condition_for_parent
           "#{quoted_parent_column_name} = CASE " +
-            "WHEN #{instance_base_class.primary_key} = :id THEN :new_parent " +
+            "WHEN #{quoted_primary_column_name} = :primary_id THEN :new_parent " +
             "ELSE #{quoted_parent_column_name} END"
         end
 
         def lock_nodes_between!(left_bound, right_bound)
           # select the rows in the model between a and d, and apply a lock
           instance_base_class.right_of(left_bound).left_of_right_side(right_bound).
-                              select(:id).lock(true)
+                              select(primary_column_name).lock(true)
         end
 
         def root
@@ -80,10 +81,9 @@ module CollectiveIdea #:nodoc:
 
         def new_parent
           case position
-          when :child
-            target.id
-          else
-            target[parent_column_name]
+          when :child then target.primary_id
+          when :root  then nil
+          else target[parent_column_name]
           end
         end
 
@@ -105,9 +105,10 @@ module CollectiveIdea #:nodoc:
 
         def target_bound
           case position
-          when :child;  right(target)
-          when :left;   left(target)
-          when :right;  right(target) + 1
+          when :child then right(target)
+          when :left  then left(target)
+          when :right then right(target) + 1
+          when :root  then nested_set_scope.pluck(right_column_name).max + 1
           else raise ActiveRecord::ActiveRecordError, "Position should be :child, :left, :right or :root ('#{position}' received)."
           end
         end

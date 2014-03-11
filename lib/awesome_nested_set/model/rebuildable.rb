@@ -16,7 +16,6 @@ module CollectiveIdea
             end
           end
 
-          private
           def scope_for_rebuild
             scope = proc {}
 
@@ -33,7 +32,7 @@ module CollectiveIdea
           end
 
           def order_for_rebuild
-            "#{quoted_left_column_full_name}, #{quoted_right_column_full_name}, #{primary_key}"
+            "#{quoted_left_column_full_name}, #{quoted_right_column_full_name}, #{quoted_primary_column_name}"
           end
         end
 
