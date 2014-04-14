@@ -27,23 +27,16 @@ module CollectiveIdea #:nodoc:
           def associate_parents(objects)
             return objects unless objects.all? {|o| o.respond_to?(:association)}
 
-            id_indexed = objects.index_by(&primary_column_name.to_sym)
+            id_indexed = objects.index_by(&:id)
             objects.each do |object|
               association = object.association(:parent)
               parent = id_indexed[object.parent_id]
 
               if !association.loaded? && parent
                 association.target = parent
-                add_to_inverse_association(association, parent)
+                association.set_inverse_instance(parent)
               end
             end
-          end
-
-          def add_to_inverse_association(association, record)
-            inverse_reflection = association.send(:inverse_reflection_for, record)
-            inverse = record.association(inverse_reflection.name)
-            inverse.target << association.owner
-            inverse.loaded!
           end
 
           def children_of(parent_id)
@@ -81,11 +74,11 @@ module CollectiveIdea #:nodoc:
           def nested_set_scope(options = {})
             options = {:order => quoted_order_column_name}.merge(options)
 
-            where(options[:conditions]).order(options.delete(:order))
+            order(options.delete(:order)).scoped options
           end
 
           def primary_key_scope(id)
-            where arel_table[primary_column_name].eq(id)
+            where arel_table[primary_key].eq(id)
           end
 
           def root
@@ -104,10 +97,6 @@ module CollectiveIdea #:nodoc:
         # Value of the parent column
         def parent_id(target = self)
           target[parent_column_name]
-        end
-
-        def primary_id(target = self)
-          target[primary_column_name]
         end
 
         # Value of the left column
@@ -145,12 +134,12 @@ module CollectiveIdea #:nodoc:
             end
           end
 
-          self.class.base_class.nested_set_scope options
+          self.class.nested_set_scope options
         end
 
         def to_text
           self_and_descendants.map do |node|
-            "#{'*'*(node.level+1)} #{node.primary_id} #{node.to_s} (#{node.parent_id}, #{node.left}, #{node.right})"
+            "#{'*'*(node.level+1)} #{node.id} #{node.to_s} (#{node.parent_id}, #{node.left}, #{node.right})"
           end.join("\n")
         end
 
@@ -158,7 +147,7 @@ module CollectiveIdea #:nodoc:
 
         def without_self(scope)
           return scope if new_record?
-          scope.where(["#{self.class.quoted_table_name}.#{self.class.quoted_primary_column_name} != ?", self.primary_id])
+          scope.where(["#{self.class.quoted_table_name}.#{self.class.primary_key} != ?", self])
         end
 
         def store_new_parent
@@ -190,7 +179,7 @@ module CollectiveIdea #:nodoc:
 
           in_tenacious_transaction do
             reload
-            nested_set_scope.primary_key_scope(primary_id).
+            nested_set_scope.primary_key_scope(id).
               update_all(["#{quoted_depth_column_name} = ?", level])
           end
           self[depth_column_name] = self.level
@@ -210,11 +199,11 @@ module CollectiveIdea #:nodoc:
           )
         end
 
-        def reload_target(target, position)
+        def reload_target(target)
           if target.is_a? self.class.base_class
             target.reload
-          elsif position != :root
-            nested_set_scope.where(primary_column_name => target).first!
+          else
+            nested_set_scope.find(target)
           end
         end
       end

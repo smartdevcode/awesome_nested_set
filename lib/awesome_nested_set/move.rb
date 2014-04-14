@@ -24,9 +24,9 @@ module CollectiveIdea #:nodoc:
 
           lock_nodes_between! a, d
 
-          nested_set_scope.where(where_statement(a, d)).update_all(
-            conditions(a, b, c, d)
-          )
+          nested_set_scope.where(where_statement(a, d)).
+            update_all( conditions(a, b, c, d,
+                                   @instance.respond_to?(:updated_at) ? Time.now.utc : nil))
         end
 
         private
@@ -34,7 +34,6 @@ module CollectiveIdea #:nodoc:
         delegate :left, :right, :left_column_name, :right_column_name,
                  :quoted_left_column_name, :quoted_right_column_name,
                  :quoted_parent_column_name, :parent_column_name, :nested_set_scope,
-                 :primary_column_name, :quoted_primary_column_name, :primary_id,
                  :to => :instance
 
         delegate :arel_table, :class, :to => :instance, :prefix => true
@@ -45,25 +44,19 @@ module CollectiveIdea #:nodoc:
             or(instance_arel_table[right_column_name].in(left_bound..right_bound))
         end
 
-        def conditions(a, b, c, d)
-          _conditions = case_condition_for_direction(:quoted_left_column_name) +
-                        case_condition_for_direction(:quoted_right_column_name) +
-                        case_condition_for_parent
-
-          # We want the record to be 'touched' if it timestamps.
-          if @instance.respond_to?(:updated_at)
-            _conditions << ", updated_at = :timestamp"
-          end
-
+        def conditions(a, b, c, d, current_time)
           [
-            _conditions,
-            {
-              :a => a, :b => b, :c => c, :d => d,
-              :primary_id => instance.primary_id,
-              :new_parent_id => new_parent_id,
-              :timestamp => Time.now.utc
-            }
+           case_condition_for_direction(:quoted_left_column_name) +
+           case_condition_for_direction(:quoted_right_column_name) +
+           case_condition_for_parent +
+           update_clause_for_updated_at(current_time),
+           {:a => a, :b => b, :c => c, :d => d, :id => instance.id,
+            :new_parent => new_parent, :current_time => current_time}
           ]
+        end
+
+        def update_clause_for_updated_at(current_time)
+          current_time ? ", updated_at = :current_time" : ""
         end
 
         def case_condition_for_direction(column_name)
@@ -78,25 +71,26 @@ module CollectiveIdea #:nodoc:
 
         def case_condition_for_parent
           "#{quoted_parent_column_name} = CASE " +
-            "WHEN #{quoted_primary_column_name} = :primary_id THEN :new_parent_id " +
+            "WHEN #{instance_base_class.primary_key} = :id THEN :new_parent " +
             "ELSE #{quoted_parent_column_name} END"
         end
 
         def lock_nodes_between!(left_bound, right_bound)
           # select the rows in the model between a and d, and apply a lock
           instance_base_class.right_of(left_bound).left_of_right_side(right_bound).
-                              select(primary_column_name).lock(true)
+                              select(:id).lock(true)
         end
 
         def root
           position == :root
         end
 
-        def new_parent_id
+        def new_parent
           case position
-          when :child then target.primary_id
-          when :root  then nil
-          else target[parent_column_name]
+          when :child
+            target.id
+          else
+            target[parent_column_name]
           end
         end
 
@@ -118,10 +112,9 @@ module CollectiveIdea #:nodoc:
 
         def target_bound
           case position
-          when :child then right(target)
-          when :left  then left(target)
-          when :right then right(target) + 1
-          when :root  then nested_set_scope.pluck(right_column_name).max + 1
+          when :child;  right(target)
+          when :left;   left(target)
+          when :right;  right(target) + 1
           else raise ActiveRecord::ActiveRecordError, "Position should be :child, :left, :right or :root ('#{position}' received)."
           end
         end
