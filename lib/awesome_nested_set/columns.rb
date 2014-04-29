@@ -19,6 +19,10 @@ module CollectiveIdea #:nodoc:
           acts_as_nested_set_options[:parent_column]
         end
 
+        def primary_column_name
+          acts_as_nested_set_options[:primary_column]
+        end
+
         def order_column
           acts_as_nested_set_options[:order_column] || left_column_name
         end
@@ -28,19 +32,23 @@ module CollectiveIdea #:nodoc:
         end
 
         def quoted_left_column_name
-          connection.quote_column_name(left_column_name)
+          ActiveRecord::Base.connection.quote_column_name(left_column_name)
         end
 
         def quoted_right_column_name
-          connection.quote_column_name(right_column_name)
+          ActiveRecord::Base.connection.quote_column_name(right_column_name)
         end
 
         def quoted_depth_column_name
-          connection.quote_column_name(depth_column_name)
+          ActiveRecord::Base.connection.quote_column_name(depth_column_name)
+        end
+
+        def quoted_primary_column_name
+          ActiveRecord::Base.connection.quote_column_name(primary_column_name)
         end
 
         def quoted_parent_column_name
-          connection.quote_column_name(parent_column_name)
+          ActiveRecord::Base.connection.quote_column_name(parent_column_name)
         end
 
         def quoted_scope_column_names
@@ -48,7 +56,11 @@ module CollectiveIdea #:nodoc:
         end
 
         def quoted_order_column_name
-          connection.quote_column_name(order_column)
+          ActiveRecord::Base.connection.quote_column_name(order_column)
+        end
+
+        def quoted_primary_key_column_full_name
+          "#{quoted_table_name}.#{quoted_primary_column_name}"
         end
 
         def quoted_left_column_full_name

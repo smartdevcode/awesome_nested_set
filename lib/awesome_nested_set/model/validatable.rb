@@ -18,8 +18,9 @@ module CollectiveIdea
             [quoted_left_column_full_name, quoted_right_column_full_name].all? do |column|
               # No duplicates
               select("#{scope_string}#{column}, COUNT(#{column})").
-                group("#{scope_string}#{column}").
+                group("#{scope_string}#{column}", quoted_primary_key_column_full_name).
                 having("COUNT(#{column}) > 1").
+                order(quoted_primary_key_column_full_name).
                 first.nil?
             end
           end
