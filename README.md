@@ -26,8 +26,6 @@ gem 'awesome_nested_set'
 To make use of `awesome_nested_set` your model needs to have 3 fields:
 `lft`, `rgt`, and `parent_id`. The names of these fields are configurable.
 You can also have optional fields: `depth` and `children_count`. These fields are configurable.
-Note that the `childrent_count` column must have `null: false` and `default: 0` to
-function properly.
 
 ```ruby
 class CreateCategories < ActiveRecord::Migration
@@ -68,10 +66,11 @@ You can pass various options to `acts_as_nested_set` macro. Configuration option
 * `left_column`: column name for left boundary data (default: lft)
 * `right_column`: column name for right boundary data (default: rgt)
 * `depth_column`: column name for the depth data default (default: depth)
-* `scope`: restricts what is to be considered a list. Given a symbol, it'll attach `_id` (if it hasn't been already) and use that as the foreign key restriction. You can also pass an array to scope by multiple attributes. Example: `acts_as_nested_set :scope => [:notable_id, :notable_type]`
+* `scope`: restricts what is to be considered a list. Given a symbol, it'll attach “_id” (if it hasn't been already) and use that as the foreign key restriction. You can also pass an array to scope by multiple attributes. Example: `acts_as_nested_set :scope => [:notable_id, :notable_type]`
 * `dependent`: behavior for cascading destroy. If set to :destroy, all the child objects are destroyed alongside this object by calling their destroy method. If set to :delete_all (default), all the child objects are deleted without calling their destroy method. If set to :nullify, all child objects will become orphaned and become roots themselves.
 * `counter_cache`: adds a counter cache for the number of children. defaults to false. Example: `acts_as_nested_set :counter_cache => :children_count`
 * `order_column`: on which column to do sorting, by default it is the left_column_name. Example: `acts_as_nested_set :order_column => :position`
+* `touch`: If set to `true`, then the updated_at timestamp on the ancestors will be set to the current time whenever this object is saved or destroyed (default: false)
 
 See [CollectiveIdea::Acts::NestedSet::Model::ClassMethods](/lib/awesome_nested_set/model.rb#L26) for a list of class methods and [CollectiveIdea::Acts::NestedSet::Model](lib/awesome_nested_set/model.rb#L13) for a list of instance methods added to acts_as_nested_set models
 
@@ -213,6 +212,8 @@ Category.rebuild!
 ```
 
 Your tree will be converted to a valid nested set. Awesome!
+
+Note: You can use `Category.rebuild!(false)` to skip model validations when performing the rebuild.
 
 ## View Helper
 

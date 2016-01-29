@@ -105,7 +105,6 @@ module CollectiveIdea #:nodoc:
                 self.reload_nested_set
 
                 Move.new(target, position, self).move
-                update_counter_cache
               end
               after_move_to(target, position)
             end

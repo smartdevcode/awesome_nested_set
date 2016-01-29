@@ -44,7 +44,7 @@ describe "AwesomeNestedSet" do
       expect(Default.depth_column_name).to eq('depth')
       expect(Default.new.depth_column_name).to eq('depth')
       expect(RenamedColumns.depth_column_name).to eq('pitch')
-      expect(RenamedColumns.depth_column_name).to eq('pitch')
+      expect(RenamedColumns.new.depth_column_name).to eq('pitch')
     end
 
     it "should have parent_column_name" do
@@ -731,27 +731,6 @@ describe "AwesomeNestedSet" do
     expect(before_text).to eq(Category.root.to_text)
   end
 
-  describe ".rebuild!" do
-    subject { Thing.rebuild! }
-    before { Thing.update_all(children_count: 0) }
-
-    context "when items have children" do
-      it "updates their counter_cache" do
-        expect { subject }.to change {
-          things(:parent1).reload.children_count }.to(2).from(0).
-          and change { things(:child_2).reload.children_count }.to(1).from(0)
-      end
-    end
-
-    context "when items do not have children" do
-      it "doesn't change their counter_cache" do
-        subject
-        expect(things(:child_1).reload.children_count).to eq(0)
-        expect(things(:child_2_1).reload.children_count).to eq(0)
-      end
-    end
-  end
-
   it "move_possible_for_sibling" do
     expect(categories(:child_2).move_possible?(categories(:child_1))).to be_truthy
   end
@@ -1046,57 +1025,30 @@ describe "AwesomeNestedSet" do
   end
 
   describe "counter_cache" do
-    let(:parent1) { things(:parent1) }
-    let(:child_1) { things(:child_1) }
-    let(:child_2) { things(:child_2) }
-    let(:child_2_1) { things(:child_2_1) }
 
     it "should allow use of a counter cache for children" do
-      expect(parent1.children_count).to eq(parent1.children.count)
+      note1 = things(:parent1)
+      expect(note1.children.count).to eq(2)
     end
 
     it "should increment the counter cache on create" do
-      expect {
-        parent1.children.create body: "Child 3"
-      }.to change { parent1.reload.children_count }.by(1)
+      note1 = things(:parent1)
+      expect(note1.children.count).to eq(2)
+      expect(note1[:children_count]).to eq(2)
+      note1.children.create :body => 'Child 3'
+      expect(note1.children.count).to eq(3)
+      note1.reload
+      expect(note1[:children_count]).to eq(3)
     end
 
     it "should decrement the counter cache on destroy" do
-      expect {
-        parent1.children.last.destroy
-      }.to change { parent1.reload.children_count }.by(-1)
-    end
-
-    context "when moving a grandchild to the root" do
-      subject { child_2_1.move_to_root }
-
-      it "should decrement the counter cache of its parent" do
-        expect { subject }.to change { child_2.reload.children_count }.by(-1)
-      end
-    end
-
-    context "when moving within a node" do
-      subject { child_1.move_to_right_of(child_2) }
-
-      it "should not update any values" do
-        expect { subject }.to_not change { parent1.reload.children_count }
-      end
-    end
-
-    context "when a child moves to another node" do
-      let(:old_parent) { things(:child_2) }
-      let(:child) { things(:child_2_1) }
-      let!(:new_parent) { Thing.create(body: "New Parent") }
-
-      subject { child.move_to_child_of(new_parent) }
-
-      it "should decrement the counter cache of its parent" do
-        expect { subject }.to change { old_parent.reload.children_count }.by(-1)
-      end
-
-      it "should increment the counter cache of its new parent" do
-        expect { subject }.to change { new_parent.reload.children_count }.by(1)
-      end
+      note1 = things(:parent1)
+      expect(note1.children.count).to eq(2)
+      expect(note1[:children_count]).to eq(2)
+      note1.children.last.destroy
+      expect(note1.children.count).to eq(1)
+      note1.reload
+      expect(note1[:children_count]).to eq(1)
     end
   end
 
