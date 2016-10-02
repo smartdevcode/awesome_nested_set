@@ -98,8 +98,7 @@ module CollectiveIdea #:nodoc:
                             :counter_cache => acts_as_nested_set_options[:counter_cache],
                             :inverse_of => (:children unless acts_as_nested_set_options[:polymorphic]),
                             :polymorphic => acts_as_nested_set_options[:polymorphic],
-                            :touch => acts_as_nested_set_options[:touch],
-                            :optional => true
+                            :touch => acts_as_nested_set_options[:touch]
       end
 
       def acts_as_nested_set_default_options
